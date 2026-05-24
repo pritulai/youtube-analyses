@@ -1,0 +1,50 @@
+Полный цикл (все шаги)
+
+python tools/run_analysis.py --query "LM Studio"
+
+python tools/run_analysis.py --query "Obsidian AI" --days 14 --max-videos 150
+Пропустить отдельные шаги
+
+# Без отправки email
+python tools/run_analysis.py --query "Claude Code" --skip-email
+
+# Без Telegram и email
+python tools/run_analysis.py --query "Cursor IDE" --skip-email --skip-telegram
+
+# Только сбор + анализ + дашборд (без облачных шагов)
+python tools/run_analysis.py --query "Perplexity AI" --skip-email --skip-telegram --skip-notebook --skip-sheets
+
+# Без NotebookLM
+python tools/run_analysis.py --query "n8n automation" --skip-email --skip-notebook
+Запустить отдельный шаг вручную
+
+# Только собрать видео
+python tools/fetch_youtube_data.py --query "LM Studio"
+
+# Только сохранить ссылки (с дедупликацией)
+python tools/save_links.py --query "LM Studio"
+
+# Только анализ через GPT
+python tools/analyze_trends.py --query "LM Studio"
+
+# Только сгенерировать дашборд
+python tools/generate_dashboard.py --query "LM Studio"
+
+# Только отправить в Telegram
+python tools/send_telegram.py --query "LM Studio"
+
+# Только экспорт в Google Sheets
+python tools/export_to_sheets.py --query "LM Studio"
+
+# Только создать ноутбук в NotebookLM
+python tools/create_notebooklm.py --query "LM Studio"
+Повторный запуск (обновление данных)
+
+# Пропустить сбор, обновить только аналитику и дашборд
+python tools/run_analysis.py --query "LM Studio" --skip-fetch --skip-email --skip-telegram --skip-notebook --skip-sheets
+Где смотреть результаты:
+
+Дашборд: .tmp/{slug}/dashboard.html (открывается автоматически в браузере)
+Ссылки: outputs/{slug}/urls.txt и outputs/{slug}/full.txt
+Telegram: получишь карточки прямо в боте
+Google Sheets: ссылка на таблицу появится в консоли при первом запуске
