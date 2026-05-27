@@ -16,3 +16,11 @@ venv/
 # OS
 .DS_Store
 Thumbs.db
+
+# Word temp files
+~$*
+~WRL*.tmp
+*.tmp
+
+# Local Claude settings
+.claude/settings.local.json
