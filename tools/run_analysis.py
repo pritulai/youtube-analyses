@@ -1,22 +1,25 @@
 #!/usr/bin/env python3
 """
-Master runner — full YouTube research pipeline for any keyword.
+Master runner — full research pipeline for any keyword and source platform.
 
 Usage:
   python tools/run_analysis.py --query "LM Studio"
+  python tools/run_analysis.py --query "AI tools" --source reddit
   python tools/run_analysis.py --query "Obsidian AI" --days 14 --max-videos 150
   python tools/run_analysis.py --query "Claude Code" --skip-email --skip-telegram
   python tools/run_analysis.py --query "NotebookLM" --skip-fetch  # reuse cached data
 
+Sources: youtube (default), reddit, google-maps, github, telegram-channels
+
 Steps:
-  1. fetch_youtube_data.py  → .tmp/{slug}/youtube_data.json
+  1. fetch_{source}_data.py → .tmp/{slug}/youtube_data.json
   2. save_links.py          → outputs/{slug}/urls.txt + full.txt (dedup)
   3. analyze_trends.py      → .tmp/{slug}/analysis.json
   4. generate_dashboard.py  → .tmp/{slug}/dashboard.html  (opens in browser)
   5. export_to_sheets.py    → Google Sheets master file (append)
-  6. send_gmail.py          → email with dashboard (optional)
-  7. send_telegram.py       → top-20 cards + full.txt (optional)
-  8. create_notebooklm.py   → new NotebookLM notebook (optional)
+  6. send_gmail.py          → email with dashboard + PDF (optional)
+  7. send_telegram.py       → summary + full.txt (optional)
+  8. create_notebooklm.py   → NotebookLM notebook + master-prompt note + slides PDF (optional)
 """
 
 import argparse
@@ -33,11 +36,13 @@ load_dotenv(os.path.join(_ROOT, ".env"))
 
 
 def send_tg_summary(query: str, slug: str):
-    """Send final summary message to Telegram with notebook and sheets links."""
+    """Send final summary message to Telegram with links + dashboard file."""
     bot_token = os.getenv("TELEGRAM_BOT_TOKEN", "")
     chat_id = os.getenv("TELEGRAM_CHAT_ID", "")
     if not bot_token or not chat_id:
         return
+
+    tg_base = f"https://api.telegram.org/bot{bot_token}"
 
     notebook_url = ""
     nb_path = os.path.join("outputs", slug, "notebook_url.txt")
@@ -53,18 +58,33 @@ def send_tg_summary(query: str, slug: str):
         lines.append(f"📓 <b>NotebookLM:</b>\n{notebook_url}")
     if sheets_url:
         lines.append(f"📊 <b>Google Sheets:</b>\n{sheets_url}")
-    if not notebook_url and not sheets_url:
-        return
+    lines.append("📈 <b>Дашборд:</b> HTML файл ниже ↓")
 
     text = "\n\n".join(lines)
     try:
         requests.post(
-            f"https://api.telegram.org/bot{bot_token}/sendMessage",
+            f"{tg_base}/sendMessage",
             json={"chat_id": chat_id, "text": text, "parse_mode": "HTML"},
             timeout=15,
         )
     except Exception as e:
         print(f"[WARN] Не удалось отправить итог в Telegram: {e}")
+        return
+
+    # Send dashboard HTML as document
+    dashboard_path = os.path.join(".tmp", slug, "dashboard.html")
+    if os.path.exists(dashboard_path):
+        try:
+            with open(dashboard_path, "rb") as f:
+                requests.post(
+                    f"{tg_base}/sendDocument",
+                    data={"chat_id": chat_id, "caption": f"📈 Dashboard: {query}"},
+                    files={"document": (f"dashboard_{slug}.html", f, "text/html")},
+                    timeout=30,
+                )
+            print("[OK] Дашборд отправлен в Telegram.")
+        except Exception as e:
+            print(f"[WARN] Не удалось отправить дашборд в Telegram: {e}")
 
 
 def make_slug(query: str) -> str:
@@ -94,16 +114,20 @@ def run_step(name: str, cmd: list, required: bool = True) -> bool:
 
 def main():
     parser = argparse.ArgumentParser(
-        description="YouTube Research — полный цикл анализа по ключевому запросу"
+        description="Research pipeline — полный цикл анализа по ключевому запросу"
     )
     parser.add_argument("--query", required=True, help='Ключевой запрос, например "LM Studio"')
+    parser.add_argument("--source", default="youtube",
+                        choices=["youtube", "reddit", "google-maps", "github", "telegram-channels"],
+                        help="Источник данных (default: youtube)")
     parser.add_argument("--days", type=int, default=7, help="Глубина поиска в днях (default: 7)")
-    parser.add_argument("--max-videos", type=int, default=100, help="Макс. видео (default: 100)")
+    parser.add_argument("--max-videos", type=int, default=100, help="Макс. видео/постов (default: 100)")
     parser.add_argument("--skip-fetch", action="store_true", help="Не качать данные заново (переиспользовать кэш)")
     parser.add_argument("--skip-email", action="store_true", help="Не отправлять на email")
     parser.add_argument("--skip-telegram", action="store_true", help="Не отправлять в Telegram")
     parser.add_argument("--skip-notebook", action="store_true", help="Не создавать ноутбук в NotebookLM")
     parser.add_argument("--skip-sheets", action="store_true", help="Не экспортировать в Google Sheets")
+    parser.add_argument("--skip-slides", action="store_true", help="Не генерировать слайды в NotebookLM")
     args = parser.parse_args()
 
     # Run from project root
@@ -115,20 +139,35 @@ def main():
     python = sys.executable
 
     print(f"\n{'='*60}")
-    print(f"  YOUTUBE RESEARCH PIPELINE")
+    print(f"  RESEARCH PIPELINE")
     print(f"  Запрос:  {args.query}")
+    print(f"  Источник:{args.source}")
     print(f"  Период:  {args.days} дней  |  Видео: {args.max_videos}")
     print(f"  Email:   {'SKIP' if args.skip_email else 'musicboxer@gmail.com'}")
     print(f"  Telegram:{'SKIP' if args.skip_telegram else 'ON'}")
     print(f"  Sheets:  {'SKIP' if args.skip_sheets else 'ON'}")
-    print(f"  NLM:     {'SKIP' if args.skip_notebook else 'ON'}")
+    print(f"  NLM:     {'SKIP' if args.skip_notebook else ('ON (без слайдов)' if args.skip_slides else 'ON + слайды')}")
     print(f"{'='*60}")
+
+    # Map source to fetch script
+    source_scripts = {
+        "youtube":           "tools/fetch_youtube_data.py",
+        "reddit":            "tools/fetch_reddit_data.py",
+        "google-maps":       "tools/fetch_googlemaps_data.py",
+        "github":            "tools/fetch_github_trending.py",
+        "telegram-channels": "tools/fetch_telegram_data.py",
+    }
+    fetch_script = source_scripts[args.source]
 
     # ── Шаг 1: Сбор данных ────────────────────────────────────
     if not args.skip_fetch:
+        if not os.path.exists(fetch_script):
+            print(f"[ERROR] Скрипт для источника '{args.source}' ещё не реализован: {fetch_script}")
+            print("  Запустите --source youtube или создайте нужный скрипт.")
+            sys.exit(1)
         run_step(
-            "1/8 — Сбор данных YouTube",
-            [python, "tools/fetch_youtube_data.py",
+            f"1/8 — Сбор данных ({args.source})",
+            [python, fetch_script,
              "--query", args.query,
              "--days", str(args.days),
              "--max_videos", str(args.max_videos)],
@@ -172,38 +211,45 @@ def main():
     else:
         print("\n[SKIP] Шаг 5 — Google Sheets (--skip-sheets)")
 
-    # ── Шаг 6: Email ──────────────────────────────────────────
-    if not args.skip_email:
-        dashboard_path = os.path.join(".tmp", slug, "dashboard.html")
-        run_step(
-            "6/8 — Отправка на email",
-            [python, "tools/send_gmail.py",
-             "--dashboard", dashboard_path,
-             "--subject", f"YouTube Research: {args.query}"],
-            required=False,
-        )
-    else:
-        print("\n[SKIP] Шаг 6 — Email (--skip-email)")
-
-    # ── Шаг 7: Telegram ───────────────────────────────────────
+    # ── Шаг 6: Telegram ───────────────────────────────────────
     if not args.skip_telegram:
         run_step(
-            "7/8 — Отправка в Telegram",
+            "6/8 — Отправка в Telegram",
             [python, "tools/send_telegram.py", "--query", args.query],
             required=False,
         )
     else:
-        print("\n[SKIP] Шаг 7 — Telegram (--skip-telegram)")
+        print("\n[SKIP] Шаг 6 — Telegram (--skip-telegram)")
 
-    # ── Шаг 8: NotebookLM ─────────────────────────────────────
+    # ── Шаг 7: NotebookLM (последний — из-за авторизации) ─────
     if not args.skip_notebook:
+        nlm_cmd = [python, "tools/create_notebooklm.py", "--query", args.query]
+        if args.skip_slides:
+            nlm_cmd.append("--skip-slides")
         run_step(
-            "8/8 — Создание ноутбука NotebookLM",
-            [python, "tools/create_notebooklm.py", "--query", args.query],
+            "7/8 — Создание ноутбука NotebookLM + слайды",
+            nlm_cmd,
             required=False,
         )
     else:
-        print("\n[SKIP] Шаг 8 — NotebookLM (--skip-notebook)")
+        print("\n[SKIP] Шаг 7 — NotebookLM (--skip-notebook)")
+
+    # ── Шаг 8: Email (после NLM, чтобы прикрепить PDF) ───────
+    if not args.skip_email:
+        dashboard_path = os.path.join(".tmp", slug, "dashboard.html")
+        email_cmd = [python, "tools/send_gmail.py",
+                     "--dashboard", dashboard_path,
+                     "--subject", f"Research: {args.query}"]
+        # Attach PDF if NotebookLM slides were generated on step 7
+        pdf_path_file = os.path.join("outputs", slug, "presentation_path.txt")
+        if os.path.exists(pdf_path_file):
+            with open(pdf_path_file, encoding="utf-8") as f:
+                pdf_path = f.read().strip()
+            if pdf_path and os.path.exists(pdf_path):
+                email_cmd += ["--attachment", pdf_path]
+        run_step("8/8 — Отправка на email (+ PDF)", email_cmd, required=False)
+    else:
+        print("\n[SKIP] Шаг 8 — Email (--skip-email)")
 
     # ── Итог ──────────────────────────────────────────────────
     print(f"\n{'='*60}")
@@ -214,7 +260,7 @@ def main():
     print(f"  Full list: outputs/{slug}/full.txt")
     print(f"{'='*60}\n")
 
-    # ── Итоговое сообщение в Telegram ─────────────────────────
+    # ── Итоговое сообщение в Telegram (ноутбук + таблица) ─────
     if not args.skip_telegram:
         send_tg_summary(args.query, slug)
 

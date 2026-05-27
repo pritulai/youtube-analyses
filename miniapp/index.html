@@ -1,0 +1,349 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <title>Research Bot</title>
+  <script src="https://telegram.org/js/telegram-web-app.js"></script>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg: var(--tg-theme-bg-color, #1c1c1e);
+      --bg2: var(--tg-theme-secondary-bg-color, #2c2c2e);
+      --text: var(--tg-theme-text-color, #ffffff);
+      --hint: var(--tg-theme-hint-color, #8e8e93);
+      --accent: var(--tg-theme-button-color, #0a84ff);
+      --accent-text: var(--tg-theme-button-text-color, #ffffff);
+      --radius: 12px;
+    }
+
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      font-size: 16px;
+      padding: 16px;
+      min-height: 100vh;
+    }
+
+    h1 {
+      font-size: 20px;
+      font-weight: 700;
+      margin-bottom: 20px;
+      text-align: center;
+    }
+
+    .section {
+      background: var(--bg2);
+      border-radius: var(--radius);
+      padding: 16px;
+      margin-bottom: 12px;
+    }
+
+    .section label {
+      display: block;
+      font-size: 13px;
+      color: var(--hint);
+      margin-bottom: 6px;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+
+    input[type="text"],
+    input[type="number"] {
+      width: 100%;
+      background: transparent;
+      border: none;
+      border-bottom: 1px solid rgba(255,255,255,0.15);
+      color: var(--text);
+      font-size: 16px;
+      padding: 6px 0;
+      outline: none;
+    }
+
+    input[type="number"] { width: 80px; }
+
+    /* Source selector */
+    .source-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 8px;
+      margin-top: 4px;
+    }
+
+    .source-btn {
+      background: rgba(255,255,255,0.07);
+      border: 2px solid transparent;
+      border-radius: 10px;
+      padding: 10px 8px;
+      text-align: center;
+      cursor: pointer;
+      transition: border-color 0.15s, background 0.15s;
+      font-size: 13px;
+      color: var(--text);
+      user-select: none;
+    }
+
+    .source-btn .ico { font-size: 20px; display: block; margin-bottom: 4px; }
+
+    .source-btn.active {
+      border-color: var(--accent);
+      background: rgba(10,132,255,0.15);
+    }
+
+    /* Days + max row */
+    .row {
+      display: flex;
+      gap: 24px;
+      align-items: flex-end;
+    }
+
+    .field { flex: 1; }
+
+    /* Toggles */
+    .toggle-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 10px 0;
+      border-bottom: 1px solid rgba(255,255,255,0.07);
+    }
+    .toggle-row:last-child { border-bottom: none; }
+    .toggle-label { font-size: 15px; }
+    .toggle-label small { display: block; font-size: 12px; color: var(--hint); }
+
+    /* iOS-style switch */
+    .switch { position: relative; width: 51px; height: 31px; flex-shrink: 0; }
+    .switch input { opacity: 0; width: 0; height: 0; }
+    .slider {
+      position: absolute; inset: 0;
+      background: rgba(255,255,255,0.2);
+      border-radius: 31px;
+      cursor: pointer;
+      transition: background 0.2s;
+    }
+    .slider::before {
+      content: "";
+      position: absolute;
+      width: 27px; height: 27px;
+      left: 2px; top: 2px;
+      background: white;
+      border-radius: 50%;
+      transition: transform 0.2s;
+    }
+    input:checked + .slider { background: var(--accent); }
+    input:checked + .slider::before { transform: translateX(20px); }
+
+    /* Buttons */
+    .btn {
+      display: block;
+      width: 100%;
+      padding: 15px;
+      border-radius: var(--radius);
+      border: none;
+      font-size: 16px;
+      font-weight: 600;
+      cursor: pointer;
+      margin-top: 12px;
+      transition: opacity 0.15s;
+    }
+    .btn:active { opacity: 0.7; }
+    .btn-primary { background: var(--accent); color: var(--accent-text); }
+    .btn-secondary {
+      background: var(--bg2);
+      color: var(--text);
+      border: 1px solid rgba(255,255,255,0.15);
+    }
+
+    .hint-text {
+      color: var(--hint);
+      font-size: 13px;
+      text-align: center;
+      margin-top: 8px;
+    }
+  </style>
+</head>
+<body>
+  <h1>🔍 Research Bot</h1>
+
+  <!-- Query -->
+  <div class="section">
+    <label>Ключевой запрос</label>
+    <input id="query" type="text" placeholder="например: LM Studio, AI tools..." autocomplete="off" />
+  </div>
+
+  <!-- Source -->
+  <div class="section">
+    <label>Источник данных</label>
+    <div class="source-grid" id="sourceGrid">
+      <div class="source-btn active" data-source="youtube">
+        <span class="ico">▶️</span>YouTube
+      </div>
+      <div class="source-btn" data-source="reddit">
+        <span class="ico">🟠</span>Reddit
+      </div>
+      <div class="source-btn" data-source="github">
+        <span class="ico">⭐</span>GitHub
+      </div>
+      <div class="source-btn" data-source="google-maps">
+        <span class="ico">🗺</span>Google Maps
+      </div>
+      <div class="source-btn" data-source="telegram-channels">
+        <span class="ico">📢</span>Telegram
+      </div>
+    </div>
+  </div>
+
+  <!-- Period & max -->
+  <div class="section">
+    <div class="row">
+      <div class="field">
+        <label>Период (дней)</label>
+        <input id="days" type="number" value="7" min="1" max="90" />
+      </div>
+      <div class="field">
+        <label>Макс. результатов</label>
+        <input id="maxVideos" type="number" value="100" min="10" max="500" />
+      </div>
+    </div>
+  </div>
+
+  <!-- Skip options -->
+  <div class="section">
+    <label>Пропустить шаги</label>
+    <div class="toggle-row">
+      <div class="toggle-label">
+        📧 Email
+        <small>Не отправлять дашборд + PDF</small>
+      </div>
+      <label class="switch"><input type="checkbox" id="skipEmail" /><span class="slider"></span></label>
+    </div>
+    <div class="toggle-row">
+      <div class="toggle-label">
+        📊 Google Sheets
+        <small>Не экспортировать в таблицу</small>
+      </div>
+      <label class="switch"><input type="checkbox" id="skipSheets" /><span class="slider"></span></label>
+    </div>
+    <div class="toggle-row">
+      <div class="toggle-label">
+        📓 NotebookLM
+        <small>Не создавать ноутбук</small>
+      </div>
+      <label class="switch"><input type="checkbox" id="skipNotebook" checked /><span class="slider"></span></label>
+    </div>
+    <div class="toggle-row">
+      <div class="toggle-label">
+        📑 Слайды (PDF)
+        <small>Не генерировать презентацию</small>
+      </div>
+      <label class="switch"><input type="checkbox" id="skipSlides" /><span class="slider"></span></label>
+    </div>
+    <div class="toggle-row">
+      <div class="toggle-label">
+        💬 Telegram-карточки
+        <small>Не отправлять топ-20 карточек</small>
+      </div>
+      <label class="switch"><input type="checkbox" id="skipTelegram" /><span class="slider"></span></label>
+    </div>
+  </div>
+
+  <!-- Run button -->
+  <button class="btn btn-primary" id="btnRun" onclick="runAnalysis()">▶ Запустить анализ</button>
+
+  <!-- NotebookLM-only button -->
+  <button class="btn btn-secondary" id="btnNotebook" onclick="runNotebook()">📓 Только NotebookLM</button>
+  <p class="hint-text">Запускает только шаг NotebookLM для уже выполненного анализа</p>
+
+  <script>
+    const tg = window.Telegram.WebApp;
+    tg.ready();
+    tg.expand();
+
+    const STORAGE_KEY = "research_bot_settings";
+
+    // --- Persist & restore ---
+    function saveSettings() {
+      const s = getSettings();
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(s));
+    }
+
+    function restoreSettings() {
+      try {
+        const raw = localStorage.getItem(STORAGE_KEY);
+        if (!raw) return;
+        const s = JSON.parse(raw);
+        if (s.query) document.getElementById("query").value = s.query;
+        if (s.source) selectSource(s.source);
+        if (s.days) document.getElementById("days").value = s.days;
+        if (s.max_videos) document.getElementById("maxVideos").value = s.max_videos;
+        if (s.skip_email !== undefined) document.getElementById("skipEmail").checked = s.skip_email;
+        if (s.skip_sheets !== undefined) document.getElementById("skipSheets").checked = s.skip_sheets;
+        if (s.skip_notebook !== undefined) document.getElementById("skipNotebook").checked = s.skip_notebook;
+        if (s.skip_slides !== undefined) document.getElementById("skipSlides").checked = s.skip_slides;
+        if (s.skip_telegram !== undefined) document.getElementById("skipTelegram").checked = s.skip_telegram;
+      } catch (e) { /* ignore */ }
+    }
+
+    // --- Source selector ---
+    let selectedSource = "youtube";
+
+    function selectSource(src) {
+      selectedSource = src;
+      document.querySelectorAll(".source-btn").forEach(btn => {
+        btn.classList.toggle("active", btn.dataset.source === src);
+      });
+    }
+
+    document.getElementById("sourceGrid").addEventListener("click", e => {
+      const btn = e.target.closest(".source-btn");
+      if (btn) selectSource(btn.dataset.source);
+    });
+
+    // --- Collect settings ---
+    function getSettings() {
+      return {
+        query: document.getElementById("query").value.trim(),
+        source: selectedSource,
+        days: parseInt(document.getElementById("days").value) || 7,
+        max_videos: parseInt(document.getElementById("maxVideos").value) || 100,
+        skip_email: document.getElementById("skipEmail").checked,
+        skip_sheets: document.getElementById("skipSheets").checked,
+        skip_notebook: document.getElementById("skipNotebook").checked,
+        skip_slides: document.getElementById("skipSlides").checked,
+        skip_telegram: document.getElementById("skipTelegram").checked,
+        action: "run",
+      };
+    }
+
+    // --- Send to bot ---
+    function runAnalysis() {
+      const s = getSettings();
+      if (!s.query) {
+        tg.showAlert("Введите ключевой запрос!");
+        return;
+      }
+      saveSettings();
+      tg.sendData(JSON.stringify(s));
+    }
+
+    function runNotebook() {
+      const s = getSettings();
+      if (!s.query) {
+        tg.showAlert("Введите ключевой запрос (он нужен чтобы найти кэш анализа)!");
+        return;
+      }
+      saveSettings();
+      tg.sendData(JSON.stringify({ ...s, action: "notebook_only" }));
+    }
+
+    // Auto-save on any input change
+    document.querySelectorAll("input").forEach(el => {
+      el.addEventListener("change", saveSettings);
+    });
+
+    restoreSettings();
+  </script>
+</body>
+</html>

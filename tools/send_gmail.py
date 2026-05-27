@@ -119,6 +119,7 @@ def main():
     parser.add_argument("--to", default=DEFAULT_TO, help="Recipient email")
     parser.add_argument("--subject", default=None, help="Email subject")
     parser.add_argument("--dashboard", default=None, help="Path to dashboard HTML file")
+    parser.add_argument("--attachment", default=None, help="Extra file to attach (e.g. PDF presentation)")
     args = parser.parse_args()
 
     dashboard_path = args.dashboard or os.path.join(".tmp", "dashboard.html")
@@ -141,7 +142,40 @@ def main():
         sys.exit(1)
 
     print(f"Sending to {args.to}...")
-    message = create_message(args.to, subject, html_body, dashboard_path)
+    # Pass PDF attachment if provided and exists
+    extra_attachment = args.attachment if args.attachment and os.path.exists(args.attachment) else None
+    if args.attachment and not extra_attachment:
+        print(f"[WARN] Вложение не найдено: {args.attachment} — отправляю без него.")
+
+    msg = MIMEMultipart("mixed")
+    msg["To"] = args.to
+    msg["From"] = "me"
+    msg["Subject"] = subject
+    html_part = MIMEMultipart("alternative")
+    html_part.attach(MIMEText(html_body, "html", "utf-8"))
+    msg.attach(html_part)
+
+    # Always attach dashboard HTML
+    with open(dashboard_path, "rb") as f:
+        part = MIMEBase("application", "octet-stream")
+        part.set_payload(f.read())
+    encoders.encode_base64(part)
+    part.add_header("Content-Disposition", f"attachment; filename={os.path.basename(dashboard_path)}")
+    msg.attach(part)
+
+    # Attach extra file (e.g. PDF)
+    if extra_attachment:
+        with open(extra_attachment, "rb") as f:
+            part2 = MIMEBase("application", "octet-stream")
+            part2.set_payload(f.read())
+        encoders.encode_base64(part2)
+        part2.add_header("Content-Disposition", f"attachment; filename={os.path.basename(extra_attachment)}")
+        msg.attach(part2)
+        print(f"  + вложение: {os.path.basename(extra_attachment)}")
+
+    import base64
+    raw = base64.urlsafe_b64encode(msg.as_bytes()).decode()
+    message = {"raw": raw}
 
     try:
         service.users().messages().send(userId="me", body=message).execute()

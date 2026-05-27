@@ -1,6 +1,8 @@
 #!/usr/bin/env python3
 """
-Saves YouTube video links to text files with deduplication across runs.
+Saves source links to text files with deduplication across runs.
+Works for YouTube, Reddit, GitHub, Google Maps and any source
+that stores items in data["videos"] with a "video_id" and optional "url" field.
 Input:  .tmp/{slug}/youtube_data.json
 Output: outputs/{slug}/urls.txt   — one URL per line
         outputs/{slug}/full.txt   — URL | title | channel (one per line)
@@ -21,7 +23,7 @@ def make_slug(query: str) -> str:
 
 
 def load_existing_ids(filepath: str) -> set:
-    """Extract video IDs already in urls.txt."""
+    """Extract known IDs from urls.txt (YouTube video IDs or full URLs for other sources)."""
     existing = set()
     if not os.path.exists(filepath):
         return existing
@@ -30,11 +32,23 @@ def load_existing_ids(filepath: str) -> set:
             line = line.strip()
             if not line:
                 continue
-            # Extract video_id from https://youtube.com/watch?v=XXXX
-            match = re.search(r"v=([A-Za-z0-9_-]{11})", line)
-            if match:
-                existing.add(match.group(1))
+            # YouTube: extract video ID from ?v=XXXX
+            yt = re.search(r"v=([A-Za-z0-9_-]{11})", line)
+            if yt:
+                existing.add(yt.group(1))
+            else:
+                # For other sources store the full URL as dedup key
+                existing.add(line.split(" | ")[0])
     return existing
+
+
+def build_url(item: dict) -> str:
+    """Return canonical URL for any source item."""
+    # Prefer explicit url field (non-YouTube sources)
+    if item.get("url"):
+        return item["url"]
+    # Fallback: YouTube URL from video_id
+    return f"https://youtube.com/watch?v={item['video_id']}"
 
 
 def main():
@@ -74,18 +88,19 @@ def main():
     skipped = 0
 
     for v in videos_sorted:
-        vid_id = v["video_id"]
-        if vid_id in existing_ids:
+        url = build_url(v)
+        dedup_key = v.get("video_id") or url
+        if dedup_key in existing_ids or url in existing_ids:
             skipped += 1
             continue
 
-        url = f"https://youtube.com/watch?v={vid_id}"
         title = v["title"].replace("|", "-").replace("\n", " ").strip()
         channel = v["channel_title"].replace("|", "-").strip()
 
         new_urls.append(url)
         new_full.append(f"{url} | {title} | {channel}")
-        existing_ids.add(vid_id)
+        existing_ids.add(dedup_key)
+        existing_ids.add(url)
 
     # Append only new entries
     if new_urls:

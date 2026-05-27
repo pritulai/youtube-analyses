@@ -108,7 +108,8 @@ def main():
         data = json.load(f)
 
     videos = data["videos"]
-    channels = data["channels"]
+    channels = data.get("channels", {})
+    source = data.get("source", "youtube")
 
     if not videos:
         print("[ERROR] No videos in data file.")
@@ -232,6 +233,7 @@ def main():
     output = {
         "query": args.query,
         "slug": slug,
+        "source": source,
         "generated_at": data["fetched_at"],
         "days_back": data.get("days_back", 7),
         "total_videos_analyzed": len(videos),
@@ -245,15 +247,20 @@ def main():
         "top_videos": [
             {
                 "video_id": v["video_id"],
+                "url": v.get("url", ""),
                 "title": v["title"],
                 "channel_title": v["channel_title"],
                 "view_count": v["view_count"],
                 "like_count": v["like_count"],
                 "comment_count": v["comment_count"],
-                "duration_seconds": v["duration_seconds"],
+                "duration_seconds": v.get("duration_seconds", 0),
                 "published_at": v["published_at"],
-                "thumbnail_url": v["thumbnail_url"],
-                "search_query": v["search_query"],
+                "thumbnail_url": v.get("thumbnail_url", ""),
+                "search_query": v.get("search_query", ""),
+                # source-specific extras (present only when relevant)
+                **({k: v[k] for k in ("rating", "address", "place_id") if k in v}),
+                **({k: v[k] for k in ("forks", "language", "full_name") if k in v}),
+                **({k: v[k] for k in ("upvote_ratio", "awards") if k in v}),
             }
             for v in top_videos[:50]
         ],

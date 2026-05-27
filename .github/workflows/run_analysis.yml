@@ -1,0 +1,111 @@
+name: Research Pipeline
+
+on:
+  workflow_dispatch:
+    inputs:
+      query:
+        description: 'Search query (e.g. "LM Studio")'
+        required: true
+        type: string
+      source:
+        description: 'Data source'
+        required: false
+        default: 'youtube'
+        type: choice
+        options:
+          - youtube
+          - reddit
+          - google-maps
+          - github
+          - telegram-channels
+      days:
+        description: 'Lookback period in days'
+        required: false
+        default: '7'
+        type: string
+      max_videos:
+        description: 'Max videos/posts to collect'
+        required: false
+        default: '100'
+        type: string
+      skip_email:
+        description: 'Skip email delivery'
+        required: false
+        default: false
+        type: boolean
+      skip_telegram:
+        description: 'Skip Telegram notification'
+        required: false
+        default: false
+        type: boolean
+      skip_notebook:
+        description: 'Skip NotebookLM (needs manual auth — run locally)'
+        required: false
+        default: true
+        type: boolean
+      skip_slides:
+        description: 'Skip slides generation'
+        required: false
+        default: true
+        type: boolean
+      skip_sheets:
+        description: 'Skip Google Sheets export'
+        required: false
+        default: false
+        type: boolean
+
+jobs:
+  analyze:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: 'pip'
+
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+
+      - name: Create .env from GitHub Secrets
+        run: |
+          cat > .env << 'EOF'
+          YOUTUBE_API_KEY=${{ secrets.YOUTUBE_API_KEY }}
+          OPENAI_API_KEY=${{ secrets.OPENAI_API_KEY }}
+          GOOGLE_CLIENT_ID=${{ secrets.GOOGLE_CLIENT_ID }}
+          GOOGLE_CLIENT_SECRET=${{ secrets.GOOGLE_CLIENT_SECRET }}
+          GOOGLE_SHEETS_ID=${{ secrets.GOOGLE_SHEETS_ID }}
+          TELEGRAM_BOT_TOKEN=${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_CHAT_ID=${{ secrets.TELEGRAM_CHAT_ID }}
+          GITHUB_TOKEN=${{ secrets.GH_TOKEN }}
+          EOF
+
+      - name: Restore Google token (Gmail OAuth)
+        if: ${{ !inputs.skip_email }}
+        run: |
+          echo '${{ secrets.GOOGLE_TOKEN_JSON }}' > token.json
+
+      - name: Run analysis pipeline
+        run: |
+          ARGS="--query '${{ inputs.query }}' --source ${{ inputs.source }} --days ${{ inputs.days }} --max-videos ${{ inputs.max_videos }}"
+          [ "${{ inputs.skip_email }}"    = "true" ] && ARGS="$ARGS --skip-email"
+          [ "${{ inputs.skip_telegram }}" = "true" ] && ARGS="$ARGS --skip-telegram"
+          [ "${{ inputs.skip_notebook }}" = "true" ] && ARGS="$ARGS --skip-notebook"
+          [ "${{ inputs.skip_slides }}"   = "true" ] && ARGS="$ARGS --skip-slides"
+          [ "${{ inputs.skip_sheets }}"   = "true" ] && ARGS="$ARGS --skip-sheets"
+          eval python tools/run_analysis.py $ARGS
+
+      - name: Upload outputs as artifact
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: research-outputs-${{ github.run_id }}
+          path: |
+            outputs/
+            .tmp/*/dashboard.html
+          retention-days: 7
