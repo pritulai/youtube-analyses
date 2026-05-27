@@ -1,28 +1,17 @@
 <!DOCTYPE html>
 <html lang="ru">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Research Bot</title>
   <script src="https://telegram.org/js/telegram-web-app.js"></script>
   <style>
-    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
-
-    :root {
-      --bg: var(--tg-theme-bg-color, #1c1c1e);
-      --bg2: var(--tg-theme-secondary-bg-color, #2c2c2e);
-      --text: var(--tg-theme-text-color, #ffffff);
-      --hint: var(--tg-theme-hint-color, #8e8e93);
-      --accent: var(--tg-theme-button-color, #0a84ff);
-      --accent-text: var(--tg-theme-button-text-color, #ffffff);
-      --radius: 12px;
-    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
 
     body {
-      background: var(--bg);
-      color: var(--text);
       font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
-      font-size: 16px;
+      background: var(--tg-theme-bg-color, #1c1c1e);
+      color: var(--tg-theme-text-color, #ffffff);
       padding: 16px;
       min-height: 100vh;
     }
@@ -35,315 +24,278 @@
     }
 
     .section {
-      background: var(--bg2);
-      border-radius: var(--radius);
-      padding: 16px;
+      background: var(--tg-theme-secondary-bg-color, #2c2c2e);
+      border-radius: 12px;
+      padding: 14px 16px;
       margin-bottom: 12px;
     }
 
-    .section label {
+    label {
       display: block;
-      font-size: 13px;
-      color: var(--hint);
-      margin-bottom: 6px;
+      font-size: 12px;
+      font-weight: 600;
+      color: var(--tg-theme-hint-color, #8e8e93);
       text-transform: uppercase;
       letter-spacing: 0.5px;
+      margin-bottom: 6px;
     }
 
-    input[type="text"],
-    input[type="number"] {
+    input[type="text"], input[type="number"] {
       width: 100%;
       background: transparent;
       border: none;
-      border-bottom: 1px solid rgba(255,255,255,0.15);
-      color: var(--text);
-      font-size: 16px;
-      padding: 6px 0;
       outline: none;
+      font-size: 16px;
+      color: var(--tg-theme-text-color, #ffffff);
+      padding: 2px 0;
     }
 
     input[type="number"] { width: 80px; }
 
-    /* Source selector */
-    .source-grid {
-      display: grid;
-      grid-template-columns: 1fr 1fr;
+    .row { display: flex; align-items: center; gap: 16px; }
+    .row .field { flex: 1; }
+
+    .radio-group {
+      display: flex;
+      flex-wrap: wrap;
       gap: 8px;
       margin-top: 4px;
     }
 
-    .source-btn {
-      background: rgba(255,255,255,0.07);
-      border: 2px solid transparent;
-      border-radius: 10px;
-      padding: 10px 8px;
-      text-align: center;
-      cursor: pointer;
-      transition: border-color 0.15s, background 0.15s;
-      font-size: 13px;
-      color: var(--text);
-      user-select: none;
-    }
-
-    .source-btn .ico { font-size: 20px; display: block; margin-bottom: 4px; }
-
-    .source-btn.active {
-      border-color: var(--accent);
-      background: rgba(10,132,255,0.15);
-    }
-
-    /* Days + max row */
-    .row {
+    .radio-group label {
       display: flex;
-      gap: 24px;
-      align-items: flex-end;
+      align-items: center;
+      gap: 6px;
+      background: var(--tg-theme-bg-color, #1c1c1e);
+      border: 1.5px solid transparent;
+      border-radius: 20px;
+      padding: 6px 12px;
+      font-size: 13px;
+      font-weight: 500;
+      text-transform: none;
+      letter-spacing: 0;
+      cursor: pointer;
+      transition: border-color 0.15s;
+      color: var(--tg-theme-text-color, #ffffff);
     }
 
-    .field { flex: 1; }
+    .radio-group input[type="radio"] { display: none; }
+    .radio-group input[type="radio"]:checked + span {
+      color: var(--tg-theme-button-color, #007aff);
+    }
+    .radio-group label:has(input:checked) {
+      border-color: var(--tg-theme-button-color, #007aff);
+    }
 
-    /* Toggles */
     .toggle-row {
       display: flex;
       justify-content: space-between;
       align-items: center;
       padding: 10px 0;
-      border-bottom: 1px solid rgba(255,255,255,0.07);
+      border-bottom: 1px solid rgba(255,255,255,0.08);
     }
-    .toggle-row:last-child { border-bottom: none; }
-    .toggle-label { font-size: 15px; }
-    .toggle-label small { display: block; font-size: 12px; color: var(--hint); }
+    .toggle-row:last-child { border-bottom: none; padding-bottom: 0; }
+    .toggle-row:first-child { padding-top: 0; }
 
-    /* iOS-style switch */
-    .switch { position: relative; width: 51px; height: 31px; flex-shrink: 0; }
-    .switch input { opacity: 0; width: 0; height: 0; }
-    .slider {
-      position: absolute; inset: 0;
-      background: rgba(255,255,255,0.2);
-      border-radius: 31px;
+    .toggle-label { font-size: 15px; }
+    .toggle-hint {
+      font-size: 12px;
+      color: var(--tg-theme-hint-color, #8e8e93);
+      margin-top: 2px;
+    }
+
+    input[type="checkbox"] {
+      width: 44px; height: 26px;
+      appearance: none;
+      background: #3a3a3c;
+      border-radius: 13px;
       cursor: pointer;
       transition: background 0.2s;
+      position: relative;
+      flex-shrink: 0;
     }
-    .slider::before {
+    input[type="checkbox"]::after {
       content: "";
       position: absolute;
-      width: 27px; height: 27px;
-      left: 2px; top: 2px;
-      background: white;
+      width: 22px; height: 22px;
+      background: #fff;
       border-radius: 50%;
-      transition: transform 0.2s;
+      top: 2px; left: 2px;
+      transition: left 0.2s;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.4);
     }
-    input:checked + .slider { background: var(--accent); }
-    input:checked + .slider::before { transform: translateX(20px); }
+    input[type="checkbox"]:checked {
+      background: var(--tg-theme-button-color, #007aff);
+    }
+    input[type="checkbox"]:checked::after { left: 20px; }
 
-    /* Buttons */
     .btn {
       display: block;
       width: 100%;
       padding: 15px;
-      border-radius: var(--radius);
       border: none;
+      border-radius: 12px;
       font-size: 16px;
       font-weight: 600;
       cursor: pointer;
-      margin-top: 12px;
       transition: opacity 0.15s;
+      margin-bottom: 10px;
     }
-    .btn:active { opacity: 0.7; }
-    .btn-primary { background: var(--accent); color: var(--accent-text); }
-    .btn-secondary {
-      background: var(--bg2);
-      color: var(--text);
-      border: 1px solid rgba(255,255,255,0.15);
+    .btn:active { opacity: 0.8; }
+
+    .btn-primary {
+      background: var(--tg-theme-button-color, #007aff);
+      color: var(--tg-theme-button-text-color, #ffffff);
     }
 
-    .hint-text {
-      color: var(--hint);
+    .btn-secondary {
+      background: var(--tg-theme-secondary-bg-color, #2c2c2e);
+      color: var(--tg-theme-button-color, #007aff);
+      border: 1.5px solid var(--tg-theme-button-color, #007aff);
+    }
+
+    .section-title {
       font-size: 13px;
-      text-align: center;
-      margin-top: 8px;
+      font-weight: 600;
+      color: var(--tg-theme-hint-color, #8e8e93);
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      margin-bottom: 8px;
+      margin-top: 4px;
     }
   </style>
 </head>
 <body>
   <h1>🔍 Research Bot</h1>
 
-  <!-- Query -->
   <div class="section">
-    <label>Ключевой запрос</label>
-    <input id="query" type="text" placeholder="например: LM Studio, AI tools..." autocomplete="off" />
+    <label>Поисковый запрос</label>
+    <input type="text" id="query" placeholder="например: AI tools, LM Studio..." autocomplete="off">
   </div>
 
-  <!-- Source -->
   <div class="section">
-    <label>Источник данных</label>
-    <div class="source-grid" id="sourceGrid">
-      <div class="source-btn active" data-source="youtube">
-        <span class="ico">▶️</span>YouTube
-      </div>
-      <div class="source-btn" data-source="reddit">
-        <span class="ico">🟠</span>Reddit
-      </div>
-      <div class="source-btn" data-source="github">
-        <span class="ico">⭐</span>GitHub
-      </div>
-      <div class="source-btn" data-source="google-maps">
-        <span class="ico">🗺</span>Google Maps
-      </div>
-      <div class="source-btn" data-source="telegram-channels">
-        <span class="ico">📢</span>Telegram
-      </div>
+    <div class="section-title">Источник данных</div>
+    <div class="radio-group" id="sourceGroup">
+      <label><input type="radio" name="source" value="youtube" checked><span>🎬 YouTube</span></label>
+      <label><input type="radio" name="source" value="reddit"><span>🟠 Reddit</span></label>
+      <label><input type="radio" name="source" value="github"><span>⭐ GitHub</span></label>
+      <label><input type="radio" name="source" value="google-maps"><span>🗺 Maps</span></label>
+      <label><input type="radio" name="source" value="telegram-channels"><span>📢 Telegram</span></label>
     </div>
   </div>
 
-  <!-- Period & max -->
   <div class="section">
     <div class="row">
       <div class="field">
         <label>Период (дней)</label>
-        <input id="days" type="number" value="7" min="1" max="90" />
+        <input type="number" id="days" value="7" min="1" max="90">
       </div>
       <div class="field">
         <label>Макс. результатов</label>
-        <input id="maxVideos" type="number" value="100" min="10" max="500" />
+        <input type="number" id="max_videos" value="100" min="10" max="500">
       </div>
     </div>
   </div>
 
-  <!-- Skip options -->
   <div class="section">
-    <label>Пропустить шаги</label>
+    <div class="section-title">Пропустить шаги</div>
     <div class="toggle-row">
-      <div class="toggle-label">
-        📧 Email
-        <small>Не отправлять дашборд + PDF</small>
+      <div>
+        <div class="toggle-label">📧 Email</div>
+        <div class="toggle-hint">Не отправлять на почту</div>
       </div>
-      <label class="switch"><input type="checkbox" id="skipEmail" /><span class="slider"></span></label>
+      <input type="checkbox" id="skip_email">
     </div>
     <div class="toggle-row">
-      <div class="toggle-label">
-        📊 Google Sheets
-        <small>Не экспортировать в таблицу</small>
+      <div>
+        <div class="toggle-label">📊 Google Sheets</div>
+        <div class="toggle-hint">Не экспортировать</div>
       </div>
-      <label class="switch"><input type="checkbox" id="skipSheets" /><span class="slider"></span></label>
+      <input type="checkbox" id="skip_sheets">
     </div>
     <div class="toggle-row">
-      <div class="toggle-label">
-        📓 NotebookLM
-        <small>Не создавать ноутбук</small>
+      <div>
+        <div class="toggle-label">📓 NotebookLM</div>
+        <div class="toggle-hint">Не создавать ноутбук</div>
       </div>
-      <label class="switch"><input type="checkbox" id="skipNotebook" checked /><span class="slider"></span></label>
+      <input type="checkbox" id="skip_notebook" checked>
     </div>
     <div class="toggle-row">
-      <div class="toggle-label">
-        📑 Слайды (PDF)
-        <small>Не генерировать презентацию</small>
+      <div>
+        <div class="toggle-label">🎞 Слайды</div>
+        <div class="toggle-hint">Не генерировать презентацию</div>
       </div>
-      <label class="switch"><input type="checkbox" id="skipSlides" /><span class="slider"></span></label>
-    </div>
-    <div class="toggle-row">
-      <div class="toggle-label">
-        💬 Telegram-карточки
-        <small>Не отправлять топ-20 карточек</small>
-      </div>
-      <label class="switch"><input type="checkbox" id="skipTelegram" /><span class="slider"></span></label>
+      <input type="checkbox" id="skip_slides" checked>
     </div>
   </div>
 
-  <!-- Run button -->
-  <button class="btn btn-primary" id="btnRun" onclick="runAnalysis()">▶ Запустить анализ</button>
-
-  <!-- NotebookLM-only button -->
-  <button class="btn btn-secondary" id="btnNotebook" onclick="runNotebook()">📓 Только NotebookLM</button>
-  <p class="hint-text">Запускает только шаг NotebookLM для уже выполненного анализа</p>
+  <button class="btn btn-primary" onclick="runAnalysis()">▶ Запустить анализ</button>
+  <button class="btn btn-secondary" onclick="runNotebook()">📓 Создать NotebookLM</button>
 
   <script>
     const tg = window.Telegram.WebApp;
     tg.ready();
     tg.expand();
 
-    const STORAGE_KEY = "research_bot_settings";
+    const LS_KEY = "research_bot_settings";
 
-    // --- Persist & restore ---
-    function saveSettings() {
-      const s = getSettings();
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(s));
-    }
-
-    function restoreSettings() {
-      try {
-        const raw = localStorage.getItem(STORAGE_KEY);
-        if (!raw) return;
-        const s = JSON.parse(raw);
-        if (s.query) document.getElementById("query").value = s.query;
-        if (s.source) selectSource(s.source);
-        if (s.days) document.getElementById("days").value = s.days;
-        if (s.max_videos) document.getElementById("maxVideos").value = s.max_videos;
-        if (s.skip_email !== undefined) document.getElementById("skipEmail").checked = s.skip_email;
-        if (s.skip_sheets !== undefined) document.getElementById("skipSheets").checked = s.skip_sheets;
-        if (s.skip_notebook !== undefined) document.getElementById("skipNotebook").checked = s.skip_notebook;
-        if (s.skip_slides !== undefined) document.getElementById("skipSlides").checked = s.skip_slides;
-        if (s.skip_telegram !== undefined) document.getElementById("skipTelegram").checked = s.skip_telegram;
-      } catch (e) { /* ignore */ }
-    }
-
-    // --- Source selector ---
-    let selectedSource = "youtube";
-
-    function selectSource(src) {
-      selectedSource = src;
-      document.querySelectorAll(".source-btn").forEach(btn => {
-        btn.classList.toggle("active", btn.dataset.source === src);
-      });
-    }
-
-    document.getElementById("sourceGrid").addEventListener("click", e => {
-      const btn = e.target.closest(".source-btn");
-      if (btn) selectSource(btn.dataset.source);
-    });
-
-    // --- Collect settings ---
     function getSettings() {
       return {
-        query: document.getElementById("query").value.trim(),
-        source: selectedSource,
-        days: parseInt(document.getElementById("days").value) || 7,
-        max_videos: parseInt(document.getElementById("maxVideos").value) || 100,
-        skip_email: document.getElementById("skipEmail").checked,
-        skip_sheets: document.getElementById("skipSheets").checked,
-        skip_notebook: document.getElementById("skipNotebook").checked,
-        skip_slides: document.getElementById("skipSlides").checked,
-        skip_telegram: document.getElementById("skipTelegram").checked,
-        action: "run",
+        query:          document.getElementById("query").value.trim(),
+        source:         document.querySelector('input[name="source"]:checked').value,
+        days:           parseInt(document.getElementById("days").value) || 7,
+        max_videos:     parseInt(document.getElementById("max_videos").value) || 100,
+        skip_email:     document.getElementById("skip_email").checked,
+        skip_sheets:    document.getElementById("skip_sheets").checked,
+        skip_notebook:  document.getElementById("skip_notebook").checked,
+        skip_slides:    document.getElementById("skip_slides").checked,
       };
     }
 
-    // --- Send to bot ---
+    function saveSettings() {
+      const s = getSettings();
+      localStorage.setItem(LS_KEY, JSON.stringify(s));
+    }
+
+    function loadSettings() {
+      try {
+        const saved = JSON.parse(localStorage.getItem(LS_KEY) || "{}");
+        if (saved.query)      document.getElementById("query").value = saved.query;
+        if (saved.days)       document.getElementById("days").value = saved.days;
+        if (saved.max_videos) document.getElementById("max_videos").value = saved.max_videos;
+        if (saved.source) {
+          const rb = document.querySelector(`input[name="source"][value="${saved.source}"]`);
+          if (rb) rb.checked = true;
+        }
+        if (saved.skip_email   !== undefined) document.getElementById("skip_email").checked   = saved.skip_email;
+        if (saved.skip_sheets  !== undefined) document.getElementById("skip_sheets").checked  = saved.skip_sheets;
+        if (saved.skip_notebook !== undefined) document.getElementById("skip_notebook").checked = saved.skip_notebook;
+        if (saved.skip_slides  !== undefined) document.getElementById("skip_slides").checked  = saved.skip_slides;
+      } catch(e) {}
+    }
+
     function runAnalysis() {
       const s = getSettings();
       if (!s.query) {
-        tg.showAlert("Введите ключевой запрос!");
+        tg.showAlert("Введите поисковый запрос!");
         return;
       }
       saveSettings();
+      s.action = "run";
       tg.sendData(JSON.stringify(s));
     }
 
     function runNotebook() {
       const s = getSettings();
       if (!s.query) {
-        tg.showAlert("Введите ключевой запрос (он нужен чтобы найти кэш анализа)!");
+        tg.showAlert("Введите поисковый запрос (используется для поиска существующего анализа)!");
         return;
       }
       saveSettings();
-      tg.sendData(JSON.stringify({ ...s, action: "notebook_only" }));
+      tg.sendData(JSON.stringify({ action: "notebook_only", query: s.query }));
     }
 
-    // Auto-save on any input change
-    document.querySelectorAll("input").forEach(el => {
-      el.addEventListener("change", saveSettings);
-    });
-
-    restoreSettings();
+    loadSettings();
   </script>
 </body>
 </html>
