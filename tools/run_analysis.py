@@ -218,6 +218,8 @@ def main():
             [python, "tools/send_telegram.py", "--query", args.query],
             required=False,
         )
+        # Send Sheets + Dashboard immediately after cards (don't wait for NLM)
+        send_tg_summary(args.query, slug)
     else:
         print("\n[SKIP] Шаг 6 — Telegram (--skip-telegram)")
 
@@ -231,6 +233,28 @@ def main():
             nlm_cmd,
             required=False,
         )
+        # Send NotebookLM link separately after it's ready
+        if not args.skip_telegram:
+            nb_path = os.path.join("outputs", slug, "notebook_url.txt")
+            if os.path.exists(nb_path):
+                with open(nb_path, encoding="utf-8") as f:
+                    nb_url = f.read().strip()
+                if nb_url:
+                    bot_token = os.getenv("TELEGRAM_BOT_TOKEN", "")
+                    chat_id_env = os.getenv("TELEGRAM_CHAT_ID", "")
+                    if bot_token and chat_id_env:
+                        try:
+                            requests.post(
+                                f"https://api.telegram.org/bot{bot_token}/sendMessage",
+                                json={
+                                    "chat_id": chat_id_env,
+                                    "text": f"📓 <b>NotebookLM готов:</b>\n{nb_url}",
+                                    "parse_mode": "HTML",
+                                },
+                                timeout=15,
+                            )
+                        except Exception:
+                            pass
     else:
         print("\n[SKIP] Шаг 7 — NotebookLM (--skip-notebook)")
 
@@ -259,10 +283,6 @@ def main():
     print(f"  Ссылки:    outputs/{slug}/urls.txt")
     print(f"  Full list: outputs/{slug}/full.txt")
     print(f"{'='*60}\n")
-
-    # ── Итоговое сообщение в Telegram (ноутбук + таблица) ─────
-    if not args.skip_telegram:
-        send_tg_summary(args.query, slug)
 
 
 if __name__ == "__main__":

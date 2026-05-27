@@ -48,17 +48,19 @@ def send(chat_id, text: str, **extra):
         print(f"[WARN] send failed: {e}")
 
 
+REPLY_KEYBOARD = json.dumps({
+    "keyboard": [[{"text": "⚙️ Настройки и запуск", "web_app": {"url": MINIAPP_URL}}]],
+    "resize_keyboard": True,
+    "persistent": True,
+})
+
+
 def send_start_keyboard(chat_id):
-    """Send welcome message with MiniApp button."""
+    """Send welcome message with persistent MiniApp reply button."""
     send(chat_id,
          "👋 <b>Research Bot</b>\n\n"
          "Нажми кнопку ниже чтобы настроить поиск и запустить анализ.",
-         reply_markup=json.dumps({
-             "inline_keyboard": [[{
-                 "text": "⚙️ Настройки и запуск",
-                 "web_app": {"url": MINIAPP_URL},
-             }]]
-         }))
+         reply_markup=REPLY_KEYBOARD)
 
 
 def build_cmd(settings: dict) -> list:
@@ -206,13 +208,8 @@ def handle_update(update: dict):
             if str(chat_id) in _running:
                 send(chat_id, "⏳ Анализ выполняется...")
             else:
-                send(chat_id, "✅ Нет активных задач. Нажми кнопку ниже для нового запуска.",
-                     reply_markup=json.dumps({
-                         "inline_keyboard": [[{
-                             "text": "⚙️ Настройки и запуск",
-                             "web_app": {"url": MINIAPP_URL},
-                         }]]
-                     }))
+                send(chat_id, "✅ Нет активных задач.",
+                     reply_markup=REPLY_KEYBOARD)
             return
 
     # Inline button callback

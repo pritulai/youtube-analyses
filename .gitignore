@@ -6,6 +6,9 @@ token.json
 # Temporary files
 .tmp/
 
+# Analysis outputs (generated data, not code)
+outputs/
+
 # Python
 __pycache__/
 *.pyc
