@@ -233,9 +233,8 @@
   <button class="btn btn-secondary" onclick="runNotebook()">📓 Создать NotebookLM</button>
 
   <script>
-    const tg = window.Telegram.WebApp;
-    tg.ready();
-    tg.expand();
+    const tg = window.Telegram?.WebApp ?? null;
+    if (tg) { tg.ready(); tg.expand(); }
 
     const LS_KEY = "research_bot_settings";
 
@@ -275,6 +274,7 @@
     }
 
     function runAnalysis() {
+      if (!tg) { alert("Откройте в Telegram через кнопку бота"); return; }
       const s = getSettings();
       if (!s.query) {
         tg.showAlert("Введите поисковый запрос!");
@@ -286,6 +286,7 @@
     }
 
     function runNotebook() {
+      if (!tg) { alert("Откройте в Telegram через кнопку бота"); return; }
       const s = getSettings();
       if (!s.query) {
         tg.showAlert("Введите поисковый запрос (используется для поиска существующего анализа)!");

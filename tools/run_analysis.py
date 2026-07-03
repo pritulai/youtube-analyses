@@ -253,8 +253,8 @@ def main():
                                 },
                                 timeout=15,
                             )
-                        except Exception:
-                            pass
+                        except Exception as e:
+                            print(f"[WARN] Не удалось отправить ссылку NotebookLM в Telegram: {e}")
     else:
         print("\n[SKIP] Шаг 7 — NotebookLM (--skip-notebook)")
 

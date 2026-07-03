@@ -18,6 +18,7 @@ import subprocess
 import threading
 import time
 import re
+import atexit
 
 import requests
 from dotenv import load_dotenv
@@ -34,6 +35,19 @@ TG = f"https://api.telegram.org/bot{BOT_TOKEN}"
 
 # Track running pipelines per chat: chat_id -> subprocess
 _running: dict[str, subprocess.Popen] = {}
+_lock = threading.Lock()
+
+
+def _cleanup():
+    for proc in list(_running.values()):
+        if isinstance(proc, subprocess.Popen):
+            try:
+                proc.terminate()
+            except Exception:
+                pass
+
+
+atexit.register(_cleanup)
 
 
 def send(chat_id, text: str, **extra):
@@ -170,6 +184,8 @@ def handle_update(update: dict):
     msg = update.get("message", {})
     if msg:
         chat_id = msg.get("chat", {}).get("id")
+        if chat_id is None:
+            return
         text = msg.get("text", "")
 
         # MiniApp sends data via web_app_data (special message type)
@@ -187,10 +203,12 @@ def handle_update(update: dict):
                 send(chat_id, "❌ Запрос не может быть пустым.")
                 return
 
-            # Check if already running
-            if str(chat_id) in _running:
-                send(chat_id, "⚠️ Анализ уже запущен. Дождитесь завершения.")
-                return
+            # Check if already running (atomic check+insert under lock)
+            with _lock:
+                if str(chat_id) in _running:
+                    send(chat_id, "⚠️ Анализ уже запущен. Дождитесь завершения.")
+                    return
+                _running[str(chat_id)] = "starting"
 
             action = settings.get("action", "run")
             if action == "notebook_only":
@@ -206,10 +224,9 @@ def handle_update(update: dict):
 
         if text == "/status":
             if str(chat_id) in _running:
-                send(chat_id, "⏳ Анализ выполняется...")
+                send(chat_id, "⏳ Анализ выполняется...", reply_markup=REPLY_KEYBOARD)
             else:
-                send(chat_id, "✅ Нет активных задач.",
-                     reply_markup=REPLY_KEYBOARD)
+                send(chat_id, "✅ Нет активных задач.", reply_markup=REPLY_KEYBOARD)
             return
 
     # Inline button callback
