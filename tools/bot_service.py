@@ -28,6 +28,7 @@ load_dotenv(os.path.join(_ROOT, ".env"))
 
 BOT_TOKEN = os.getenv("TELEGRAM_BOT_TOKEN", "")
 MINIAPP_URL = os.getenv("MINIAPP_URL", "https://pritulai.github.io/youtube-analyses/")
+FORCE_SKIP_NOTEBOOK = os.getenv("FORCE_SKIP_NOTEBOOK", "").lower() in ("1", "true", "yes")
 PYTHON = sys.executable
 RUNNER = os.path.join(_ROOT, "tools", "run_analysis.py")
 
@@ -91,7 +92,7 @@ def build_cmd(settings: dict) -> list:
         cmd.append("--skip-telegram")
     if settings.get("skip_sheets"):
         cmd.append("--skip-sheets")
-    if settings.get("skip_notebook"):
+    if settings.get("skip_notebook") or FORCE_SKIP_NOTEBOOK:
         cmd.append("--skip-notebook")
     if settings.get("skip_slides"):
         cmd.append("--skip-slides")
@@ -211,6 +212,11 @@ def handle_update(update: dict):
                 _running[str(chat_id)] = "starting"
 
             action = settings.get("action", "run")
+            if action == "notebook_only" and FORCE_SKIP_NOTEBOOK:
+                with _lock:
+                    _running.pop(str(chat_id), None)
+                send(chat_id, "⚠️ <b>NotebookLM недоступен</b> на этом сервере.\nЗапусти анализ без шага NLM.")
+                return
             if action == "notebook_only":
                 t = threading.Thread(target=run_notebook_only, args=(chat_id, query), daemon=True)
             else:
